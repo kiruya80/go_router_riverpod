@@ -45,6 +45,41 @@ final goRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
+final goRouterProvider2 = Provider<GoRouter>((ref) {
+  final isLoggedIn = ref.watch(isLoggedInProvider);
+  // final isAdmin = ref.watch(isAdminProvider); // 예시
+
+  return GoRouter(
+    initialLocation: '/',
+    routes: <RouteBase>[
+      GoRoute(
+        path: '/',
+        builder: (_, __) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/login',
+        builder: (_, __) => const LoginScreen(),
+        redirect: (_, __) => isLoggedIn ? '/profile' : null,
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (_, __) => const ProfileScreen(),
+        redirect: (_, __) => isLoggedIn ? null : '/login',
+      ),
+      // GoRoute(
+      //   path: '/admin',
+      //   builder: (_, __) => const AdminScreen(),
+      //   redirect: (_, __) => isLoggedIn && isAdmin ? null : '/login',
+      // ),
+      // GoRoute(
+      //   path: '/settings',
+      //   builder: (_, __) => const SettingsScreen(),
+      //   redirect: (_, __) => isLoggedIn ? null : '/login',
+      // ),
+    ],
+  );
+});
+
 void main() {
   runApp(const ProviderScope(child: MyApp()));
 }
