@@ -40,3 +40,6 @@ Tools • Dart 3.7.2 • DevTools 2.42.3
 
 
 https://jsonplaceholder.typicode.com
+
+## 
+flutter packages pub run build_runner build
