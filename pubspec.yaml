@@ -61,7 +61,7 @@ dependencies:
 
   # [utils]
   # App추가 / 프리퍼런스 / BSD-3-Clause / https://pub.dev/packages/shared_preferences
-#  shared_preferences: ^2.5.3
+  shared_preferences: ^2.5.3
   # App추가 / 로그 / MIT / https://pub.dev/packages/logger
   logger: ^2.5.0
   # App추가 / 토스트 1 / MIT / https://pub.dev/packages/fluttertoast
