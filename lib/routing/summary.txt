@@ -1,0 +1,197 @@
+
+GoRouter 자체적으로 AutoRoute와 같은 명시적인 "AuthGuard" 기능은 내장하고 있지 않지만, 유사한 방식으로 라우트별로 접근 제어를 구현할 수 있습니다. 몇 가지 방법이 있습니다.
+
+1. 각 라우트별 redirect 함수 활용:
+
+각 GoRoute마다 개별적인 redirect 함수를 정의하여 해당 라우트에 대한 접근 제어를 수행할 수 있습니다.
+
+final goRouterProvider = Provider<GoRouter>((ref) {
+  final isLoggedIn = ref.watch(isLoggedInProvider);
+
+  return GoRouter(
+    initialLocation: '/',
+    routes: <RouteBase>[
+      GoRoute(
+        path: '/',
+        builder: (BuildContext context, GoRouterState state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/login',
+        builder: (BuildContext context, GoRouterState state) => const LoginScreen(),
+        redirect: (context, state) => isLoggedIn ? '/profile' : null,
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (BuildContext context, GoRouterState state) => const ProfileScreen(),
+        redirect: (context, state) => isLoggedIn ? null : '/login',
+      ),
+      GoRoute(
+        path: '/admin',
+        builder: (BuildContext context, GoRouterState state) => const AdminScreen(),
+        redirect: (context, state) {
+          final isAdmin = ref.watch(isAdminProvider); // 예시: 관리자 권한 Provider
+          return isLoggedIn && isAdmin ? null : '/login';
+        },
+      ),
+      // ... 다른 라우트
+    ],
+  );
+});
+각 GoRoute 내부에 redirect 함수를 정의합니다.
+해당 라우트에 접근하기 전에 redirect 함수가 호출되어 로그인 상태나 권한 등을 확인하고, 접근이 불가능하면 로그인 화면 등으로 리디렉션합니다.
+이렇게 하면 중앙 집중식 redirect 콜백의 복잡성을 줄일 수 있습니다.
+
+
+
+2. Wrapper 위젯 활용:
+
+접근 제어가 필요한 화면을 특정 Wrapper 위젯으로 감싸고, 해당 위젯 내에서 로그인 상태를 확인하여 접근을 제어할 수 있습니다.
+
+class AuthRequiredScreen extends ConsumerWidget {
+  final Widget child;
+
+  const AuthRequiredScreen({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isLoggedIn = ref.watch(isLoggedInProvider);
+
+    if (!isLoggedIn) {
+      // 로그인되지 않았으면 로그인 화면으로 이동
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.go('/login');
+      });
+      return const Scaffold(body: Center(child: CircularProgressIndicator())); // 로딩 화면 등
+    }
+    return child;
+  }
+}
+
+final goRouterProvider = Provider<GoRouter>((ref) {
+  return GoRouter(
+    initialLocation: '/',
+    routes: <RouteBase>[
+      GoRoute(
+        path: '/',
+        builder: (BuildContext context, GoRouterState state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/login',
+        builder: (BuildContext context, GoRouterState state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (BuildContext context, GoRouterState state) => const AuthRequiredScreen(child: ProfileScreen()),
+      ),
+      GoRoute(
+        path: '/admin',
+        builder: (BuildContext context, GoRouterState state) => const AuthRequiredScreen(child: AdminScreen()),
+      ),
+      // ... 다른 라우트
+    ],
+  );
+});
+AuthRequiredScreen과 같은 Wrapper 위젯을 만듭니다.
+이 위젯은 ConsumerWidget으로 만들어 로그인 상태(isLoggedInProvider)를 감시합니다.
+로그인되지 않았으면 context.go('/login')을 사용하여 로그인 화면으로 이동시킵니다.
+WidgetsBinding.instance.addPostFrameCallback을 사용하는 것은 빌드 과정 중에 context.go()를 호출하는 것을 방지하기 위함입니다.
+로그인되었으면 child 위젯 (실제 접근하려는 화면)을 반환합니다.
+접근 제어가 필요한 라우트의 builder에서 이 AuthRequiredScreen으로 감싸줍니다.
+
+
+
+3. GoRouterObserver 활용 (더 복잡한 시나리오):
+
+GoRouterObserver를 사용하여 라우트 변경 이벤트를 감지하고,
+특정 라우트로 이동하기 전에 인증 상태를 확인하여 리디렉션을 수행할 수 있습니다.
+이 방법은 더 복잡한 인증 로직이나 전역적인 라우팅 제어에 유용할 수 있습니다.
+
+Dart
+
+class AuthObserver extends GoRouterObserver {
+  final Ref ref;
+
+  AuthObserver(this.ref);
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _checkAuth(route.settings.name);
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _checkAuth(previousRoute?.settings.name);
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    _checkAuth(newRoute?.settings.name);
+  }
+
+  void _checkAuth(String? routeName) {
+    if (routeName == '/profile' || routeName == '/admin') {
+      final isLoggedIn = ref.read(isLoggedInProvider);
+      if (!isLoggedIn) {
+        // Navigator.of(context).pushReplacementNamed('/login'); // context에 접근 어려움
+        // GoRouter.of(context).go('/login'); // observer에서는 context에 직접 접근하기 어려움
+        // 상태를 변경하여 GoRouter의 redirect를 트리거하는 방식 고려
+        ref.read(authRedirectTargetProvider.notifier).state = '/login';
+      }
+    }
+    // ... 다른 라우트별 권한 확인 로직
+  }
+}
+
+final authRedirectTargetProvider = StateProvider<String?>((ref) => null);
+
+final goRouterProvider = Provider<GoRouter>((ref) {
+  final authRedirectTarget = ref.watch(authRedirectTargetProvider);
+  final isLoggedIn = ref.watch(isLoggedInProvider);
+
+  return GoRouter(
+    initialLocation: '/',
+    observers: [AuthObserver(ref)],
+    redirect: (context, state) {
+      if (authRedirectTarget != null) {
+        final target = authRedirectTarget;
+        ref.read(authRedirectTargetProvider.notifier).state = null; // Reset
+        return target;
+      }
+      if (state.fullPath == '/profile' && !isLoggedIn) {
+        return '/login';
+      }
+      if (state.fullPath == '/admin' && !isLoggedIn) {
+        return '/login';
+      }
+      return null;
+    },
+    routes: <RouteBase>[
+      GoRoute(
+        path: '/',
+        builder: (BuildContext context, GoRouterState state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/login',
+        builder: (BuildContext context, GoRouterState state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (BuildContext context, GoRouterState state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/admin',
+        builder: (BuildContext context, GoRouterState state) => const AdminScreen(),
+      ),
+      // ... 다른 라우트
+    ],
+  );
+});
+GoRouterObserver를 상속받아 AuthObserver를 구현합니다.
+didPush, didPop, didReplace 등의 콜백에서 라우트 이름을 확인하고, 로그인 상태에 따라 리디렉션을 처리합니다.
+Observer 내부에서는 context에 직접 접근하기 어려우므로, 상태 Provider (authRedirectTargetProvider)를 사용하여 리디렉션 대상을 저장하고, GoRouter의 redirect 콜백에서 이를 감지하여 실제 리디렉션을 수행하는 방식을 고려할 수 있습니다.
+어떤 방법을 선택해야 할까요?
+
+간단한 접근 제어: 각 라우트별 redirect 함수를 사용하는 것이 가장 간단하고 직관적입니다.
+재사용 가능한 접근 제어 로직: AuthRequiredScreen과 같은 Wrapper 위젯을 사용하면 여러 화면에 동일한 접근 제어 로직을 쉽게 적용할 수 있습니다.
+복잡한 전역적 제어: GoRouterObserver는 더 복잡한 시나리오나 전역적인 라우팅 흐름 제어에 유용하지만, 구현이 다소 복잡해질 수 있습니다.
+대부분의 경우 각 라우트별 redirect 함수나 Wrapper 위젯을 조합하여 사용하는 것이 효과적일 수 있습니다. 프로젝트의 규모와 복잡성에 따라 적절한 방법을 선택하시면 됩니다.

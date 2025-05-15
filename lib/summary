@@ -1,0 +1,37 @@
+주요 변경 및 개선 사항:
+
+data/models/ (복수형): 폴더명을 복수형으로 통일하여 일관성을 높입니다. request, response도 마찬가지로 requests/, responses/로 변경할 수 있습니다.
+
+data/data_sources/: 데이터를 가져오는 출처를 명시적으로 구분합니다.
+
+local/: 로컬 데이터베이스, 캐시 등을 관리합니다.
+remote/: API 통신을 담당합니다.
+data/repositories/impl/ (선택 사항): 리포지토리 인터페이스의 구현체를 명시적으로 impl 폴더에 넣어 추상화와 구현을 분리합니다.
+
+data/repositories.dart (선택 사항): domain/repositories/에 정의된 인터페이스를 data/repositories/에서 구현하고, 이 파일에서 구현체를 export하여 의존성 주입 시 편리하게 사용할 수 있습니다.
+
+domain/ (새로운 계층 - Clean Architecture): 비즈니스 로직과 엔티티를 핵심으로 분리합니다.
+
+entities/: 순수한 비즈니스 엔티티를 정의합니다 (UI나 데이터 계층에 의존하지 않습니다).
+repositories/: 데이터 접근을 위한 추상 인터페이스를 정의합니다 (구현은 data/repositories/에 위치).
+use_cases/: 특정 비즈니스 로직 단위를 나타냅니다 (인터랙터라고도 불립니다). domain/repositories/를 통해 데이터를 가져와 비즈니스 규칙을 적용하고 결과를 presentation/ 계층에 제공합니다.
+presentation/ (UI 관련 계층 - Clean Architecture): UI와 상태 관리를 담당하는 계층을 명확히 분리합니다.
+
+screens/: 화면 위젯.
+widgets/: 재사용 가능한 UI 컴포넌트.
+blocs/ 또는 providers/: 상태 관리 로직 (BLoC/Cubit, Riverpod, Provider 등 사용하는 상태 관리 라이브러리에 따라 선택).
+routing/: routers/보다 더 명확하게 라우팅 관련 폴더임을 나타냅니다.
+
+config/ (새로운 폴더): 앱의 환경 설정 (API 키, 빌드 환경 설정 등) 관련 파일을 담습니다.
+
+utils/: core/utils/와 마찬가지로 앱 전반적으로 사용되는 유틸리티 함수를 담지만, core보다는 조금 더 특정 도메인이나 기능에 걸쳐 사용될 수 있는 유틸리티를 포함할 수 있습니다 (예: 특정 데이터 포맷팅 유틸). 필요에 따라 core/utils와 통합하거나, 성격에 따라 더 세분화할 수도 있습니다.
+
+선택 사항 및 고려 사항:
+
+Clean Architecture: domain/과 presentation/ 계층을 도입하는 것은 Clean Architecture의 핵심 아이디어를 적용하여 의존성 방향을 명확히 하고 비즈니스 로직을 UI 및 데이터 소스로부터 독립시키는 강력한 방법입니다. 하지만 프로젝트 규모와 복잡성에 따라 도입 여부를 결정해야 합니다.
+상태 관리: presentation/ 아래에 blocs/ 또는 providers/ 폴더를 만들어 상태 관리 패턴을 명확히 합니다. 사용하는 라이브러리에 따라 이름을 선택합니다.
+utils 폴더 구분: core/utils와 lib/utils의 역할을 명확히 정의하고, 필요에 따라 통합하거나 더 세분화합니다.
+config 폴더: 환경 설정 파일이 많아질 경우 유용합니다.
+결론:
+
+제안된 변경 사항들은 프로젝트의 구조를 더욱 명확하고 확장성 있게 만들어 줄 수 있습니다. 특히 Clean Architecture의 domain과 presentation 계층을 도입하는 것은 장기적으로 유지보수성을 크게 향상시킬 수 있습니다. 하지만 이러한 변경은 프로젝트의 규모와 팀의 숙련도에 따라 신중하게 결정해야 합니다. 작은 규모의 프로젝트라면 현재 구조에서 폴더명 통일 및 명확화 정도만 적용해도 충분할 수 있습니다.
